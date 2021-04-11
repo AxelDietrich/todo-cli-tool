@@ -1,10 +1,11 @@
 {
  "tasks": [
   {
-   "name": "tarea",
-   "description": "tareita",
-   "due_date": "0001-01-01T00:00:00Z",
-   "finish_date": "0001-01-01T00:00:00Z"
+   "ID": 3,
+   "name": "prueba",
+   "description": "\"pruebita\"",
+   "finish_date": "2021-04-11T16:22:45.8539791-03:00",
+   "finished": true
   }
  ]
 }

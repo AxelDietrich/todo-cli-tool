@@ -3,23 +3,30 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
+
+type LastID struct {
+	ID uint
+}
 
 type Tasks struct {
 	Tasks []Task `json:"tasks"`
 }
 
 type Task struct {
+	ID uint `json:"ID"`
 	Name string `json:"name"`
 	Description string `json:"description"`
-	DueDate time.Time `json:"due_date"`
 	FinishDate time.Time `json:"finish_date" default:"nil"`
-	Finish bool `json:"-" default:"false"`
+	Finish bool `json:"finished" default:"false"`
 }
 
 func FindOption(slice []string, val string) bool {
@@ -31,48 +38,71 @@ func FindOption(slice []string, val string) bool {
 	return false;
 }
 
-func FindAndDeleteTask(slice []Task, name string) bool {
-	for i, value := range slice {
-		if value.Name == name {
-			slice = append(slice[:i], slice[i+1:]...)
-			return true
+func FindAndDeleteTask(slice *[]Task, ID string) (error) {
+	findID, err := strconv.Atoi(ID)
+	if err != nil {
+		fmt.Println(err.Error())
+		return err
+	}
+	for i, value := range *slice {
+		if value.ID == uint(findID) {
+			*slice = append((*slice)[:i], (*slice)[i+1:]...)
+			return nil
 		}
 	}
-	return false
+	return errors.New("There's not a task with that ID")
 }
 
-func ReadInput(reader *bufio.Reader) (string, []string){
+func ReadInput(reader *bufio.Reader) []string {
 	option, _ := reader.ReadString('\n')
-	inputs := strings.Fields(option);
+	r := regexp.MustCompile(`[^\s"']+|"([^"]*)"|'([^']*)`)
+	inputs := r.FindAllString(option, -1)
 	for len(inputs) > 3 {
 		fmt.Println("Too many arguments")
 		option, _ = reader.ReadString('\n')
 		inputs = strings.Fields(option)
 	}
 	strings.ToLower(inputs[0])
-	return option, inputs
+	return inputs
 }
 
-func FindAndFinish(slice []Task, name string) bool {
-	for _, value := range slice {
-		if value.Name == name {
+func FindAndFinish(slice *[]Task, ID string) error {
+	findID, err := strconv.Atoi(ID)
+	if err != nil {
+		return err
+	}
+	for i, value := range *slice {
+		if value.ID == uint(findID) {
 			value.FinishDate = time.Now()
 			value.Finish = true
-			return true
+			(*slice)[i] = value
+			return nil
 		}
 	}
-	return false
+	return errors.New("There's no taks with that ID")
+}
+func SaveLastID(lastID *LastID) error {
+	file, _ := json.MarshalIndent(lastID, "", " ")
+	err := ioutil.WriteFile("ID.json", file, 0644)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func SaveChanges(tasks *Tasks){
+func SaveChanges(tasks *Tasks) error {
 	file, _ := json.MarshalIndent(tasks, "", " ")
 	err := ioutil.WriteFile("tasks.json", file, 0644)
 	if err != nil {
-		fmt.Println(err)
+		return err
 	}
+	return nil
 }
 
-func Loop(options []string, inputs []string, tasks *Tasks, option string) {
+func Loop(options []string, tasks *Tasks, lastID *LastID) {
+
+	reader := bufio.NewReader(os.Stdin)
+	inputs := ReadInput(reader)
 
 	found := FindOption(options, inputs[0])
 
@@ -81,43 +111,131 @@ func Loop(options []string, inputs []string, tasks *Tasks, option string) {
 		case "add":
 			if len(inputs) == 1 {
 				fmt.Println("Task name empty")
-
 			}
 			newTask := &Task{}
+			newTask.ID = lastID.ID + 1
+			lastID.ID = newTask.ID
 			newTask.Name = inputs[1]
-			newTask.Description = inputs[2]
-			tasks.Tasks = append(tasks.Tasks, *newTask)
-			SaveChanges(tasks)
-		case "showall":
-			for _, value := range tasks.Tasks {
-				fmt.Println(value.Name)
-				fmt.Println(value.Description)
-				fmt.Println(value.DueDate)
-				if (value.Finish == true) {
-					fmt.Println(value.FinishDate)
-				}
-				fmt.Println("")
+			if len(inputs) > 2 {
+				newTask.Description = inputs[2]
 			}
-		case "delete":
-			FindAndDeleteTask(tasks.Tasks, inputs[1])
-			fmt.Println("Task deleted")
-			SaveChanges(tasks)
-		case "finish":
-			FindAndFinish(tasks.Tasks, inputs[1])
-			SaveChanges(tasks)
-		case "showopen":
-			for _, value := range tasks.Tasks {
-				if value.Finish == true {
-					fmt.Println(value.Name)
-					fmt.Println(value.Description)
-					fmt.Println(value.DueDate)
-					fmt.Println(value.FinishDate)
+			tasks.Tasks = append(tasks.Tasks, *newTask)
+			errID := SaveLastID(lastID)
+			if errID != nil {
+				fmt.Println(errID.Error())
+			} else {
+				err := SaveChanges(tasks)
+				if err != nil {
+					fmt.Println(err.Error())
+					fmt.Println("")
+				} else {
+					fmt.Println("Task added")
 					fmt.Println("")
 				}
+			}
+
+		case "showall":
+			if len(inputs) > 1 {
+				fmt.Println("Too many arguments")
+				break
+			}
+			if len(tasks.Tasks) == 0{
+				fmt.Println("There isn't tasks yet")
+			} else {
+				for _, value := range tasks.Tasks {
+					fmt.Printf("ID: %s\n", strconv.FormatUint(uint64(value.ID), 10))
+					fmt.Printf("Name: %s\n", value.Name)
+					if (value.Description != "") {
+						fmt.Printf("Description: %s\n", value.Description)
+					}
+					if value.Finish {
+						fmt.Printf("Finish date: %s\n", value.FinishDate)
+					}
+					fmt.Println("")
+				}
+			}
+		case "delete":
+			if len(inputs) > 2 {
+				fmt.Println("Too many arguments")
+				break
+			}
+			err := FindAndDeleteTask(&tasks.Tasks, inputs[1])
+			if err != nil {
+				fmt.Println(err.Error())
+				break
+			}
+			fmt.Println("Task deleted")
+			err = SaveChanges(tasks)
+			if err != nil {
+				fmt.Println(err.Error())
+			} else{
+				fmt.Println("Task deleted")
+				fmt.Println("")
+			}
+		case "finish":
+			if len(inputs) > 2 {
+				fmt.Println("Too many arguments")
+				fmt.Println("")
+				break
+			}
+			err := FindAndFinish(&tasks.Tasks, inputs[1])
+			if err != nil {
+				fmt.Print(err.Error())
+			}
+			err = SaveChanges(tasks)
+			if err != nil {
+				fmt.Println(err.Error())
+			} else {
+				fmt.Println("Tasks finished")
+			}
+		case "showopen":
+			if len(inputs) > 1 {
+				fmt.Println("Too many arguments")
+				fmt.Println("")
+				break
+			}
+			var count int
+			for _, value := range tasks.Tasks {
+				if value.Finish == false {
+					count++
+					fmt.Printf("ID: %s\n", strconv.FormatUint(uint64(value.ID), 10))
+					fmt.Printf("Name: %s\n", value.Name)
+					if (value.Description != "") {
+						fmt.Printf("Description: %s\n", value.Description)
+					}
+					fmt.Println("")
+				}
+			}
+			if count == 0 {
+				fmt.Println("There isn't open tasks")
+			}
+		case "showfinished":
+			if len(inputs) > 1 {
+				fmt.Println("Too many arguments")
+				fmt.Println("")
+				break
+			}
+			var count int
+			for _, value := range tasks.Tasks {
+				if value.Finish {
+					count++
+					fmt.Printf("ID: %s\n", strconv.FormatUint(uint64(value.ID), 10))
+					fmt.Printf("Name: %s\n", value.Name)
+					if (value.Description != "") {
+						fmt.Printf("Description: %s\n", value.Description)
+					}
+					fmt.Printf("Finish date: %s\n", value.FinishDate)
+					fmt.Println("")
+				}
+			}
+			if count == 0 {
+				fmt.Println("There isn't open tasks")
 			}
 		case "exit":
 			os.Exit(0)
 		}
+	} else {
+		fmt.Println("Not a valid command")
 	}
 }
 
@@ -130,29 +248,46 @@ func main () {
 	fmt.Println("add <task name> <description>")
 	fmt.Println("showall -> Lists all current tasks")
 	fmt.Println("showopen -> Lists all open tasks")
-	fmt.Println("delete <task name>")
+	fmt.Println("delete <task ID>")
 	fmt.Println("finish <task name>")
+	fmt.Println("")
 
-	options := []string{"add", "showall", "delete", "finish", "showopen"}
+	options := []string{"add", "showall", "delete", "finish", "showopen", "showfinished", "exit"}
 
-	reader := bufio.NewReader(os.Stdin)
-	option, inputs := ReadInput(reader)
 
-	if _, err := os.Stat("tasks.json"); err == nil {
+
+	if _, err := os.Stat("tasks.json"); err != nil {
 		ioutil.WriteFile("tasks.json",nil, 0644)
 	}
 	jsonFile, err := os.Open("tasks.json")
 	if err != nil {
 		os.Exit(1)
 	}
+
 	byteValue, _ := ioutil.ReadAll(jsonFile)
 
 	var tasks Tasks
 
 	json.Unmarshal(byteValue, &tasks)
 
-	Loop(options, inputs, &tasks, option)
+	//Parse IDs
+	if _, err := os.Stat("ID.json"); err != nil {
+		ioutil.WriteFile("ID.json",nil, 0644)
+	}
+	jsonFileID, err := os.Open("ID.json")
+	if err != nil {
+		os.Exit(1)
+	}
 
+	byteValueID, _ := ioutil.ReadAll(jsonFileID)
+
+	var lastID LastID
+
+	json.Unmarshal(byteValueID, &lastID)
+
+	for {
+		Loop(options, &tasks, &lastID)
+	}
 
 
 }
