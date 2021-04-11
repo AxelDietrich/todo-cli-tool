@@ -87,7 +87,7 @@ func FindAndFinish(slice *[]Task, ID string) error {
 }
 func SaveLastID(lastID *LastID) error {
 	file, _ := json.MarshalIndent(lastID, "", " ")
-	err := ioutil.WriteFile("ID.json", file, 0644)
+	err := ioutil.WriteFile(todoDir + "ID.json", file, 0644)
 	if err != nil {
 		return err
 	}
@@ -96,7 +96,7 @@ func SaveLastID(lastID *LastID) error {
 
 func SaveChanges(tasks *Tasks) error {
 	file, _ := json.MarshalIndent(tasks, "", " ")
-	err := ioutil.WriteFile("tasks.json", file, 0644)
+	err := ioutil.WriteFile(todoDir + "tasks.json", file, 0644)
 	if err != nil {
 		return err
 	}
@@ -262,6 +262,7 @@ func Loop(options []string, tasks *Tasks, lastID *LastID) {
 	}
 }
 
+var todoDir string
 
 func main () {
 
@@ -282,7 +283,7 @@ func main () {
 
 
 	homeDir, _ := os.UserHomeDir()
-	todoDir := homeDir + "\\todo\\"
+	todoDir = homeDir + "\\todo\\"
 	if _, err := os.Stat(todoDir); os.IsNotExist(err) {
 		err = os.Mkdir(todoDir, 0755)
 		if err != nil {
