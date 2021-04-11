@@ -8,7 +8,7 @@ You can:
 
 **add** a task with a description:
 
-- add "<task-name"> "<task-decription>"
+- add " <task-name> " " <task-decription> "
   
 **delete** a task:
 
