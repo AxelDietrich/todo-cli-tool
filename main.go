@@ -248,18 +248,25 @@ func main () {
 	fmt.Println("add <task name> <description>")
 	fmt.Println("showall -> Lists all current tasks")
 	fmt.Println("showopen -> Lists all open tasks")
-	fmt.Println("delete <task ID>")
-	fmt.Println("finish <task name>")
+	fmt.Println("showfinished -> Lists all finished tasks")
+	fmt.Println("delete <task ID> -> ")
+	fmt.Println("finish <task name> -> Marks a task as finished")
+	fmt.Println("exit -> Closes the app")
 	fmt.Println("")
 
 	options := []string{"add", "showall", "delete", "finish", "showopen", "showfinished", "exit"}
 
 
-
-	if _, err := os.Stat("tasks.json"); err != nil {
-		ioutil.WriteFile("tasks.json",nil, 0644)
+	homeDir, _ := os.UserHomeDir()
+	todoDir := homeDir + "\\todo\\"
+	err := os.Mkdir(todoDir, 0755)
+	if err != nil {
+		os.Exit(1)
 	}
-	jsonFile, err := os.Open("tasks.json")
+	if _, err = os.Stat(todoDir + "tasks.json"); err != nil {
+		ioutil.WriteFile(todoDir + "tasks.json",nil, 0644)
+	}
+	jsonFile, err := os.Open(todoDir + "tasks.json")
 	if err != nil {
 		os.Exit(1)
 	}
@@ -271,10 +278,10 @@ func main () {
 	json.Unmarshal(byteValue, &tasks)
 
 	//Parse IDs
-	if _, err := os.Stat("ID.json"); err != nil {
-		ioutil.WriteFile("ID.json",nil, 0644)
+	if _, err := os.Stat(todoDir + "ID.json"); err != nil {
+		ioutil.WriteFile(todoDir + "ID.json",nil, 0644)
 	}
-	jsonFileID, err := os.Open("ID.json")
+	jsonFileID, err := os.Open(todoDir + "ID.json")
 	if err != nil {
 		os.Exit(1)
 	}
