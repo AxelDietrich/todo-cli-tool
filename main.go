@@ -1,3 +1,4 @@
+//go:generate goversioninfo
 package main
 
 import (
@@ -61,6 +62,9 @@ func ReadInput(reader *bufio.Reader) []string {
 		fmt.Println("Too many arguments")
 		option, _ = reader.ReadString('\n')
 		inputs = strings.Fields(option)
+	}
+	for i, value := range inputs {
+		inputs[i] = strings.Trim(value, "\"")
 	}
 	strings.ToLower(inputs[0])
 	return inputs
@@ -133,6 +137,8 @@ func Loop(options []string, tasks *Tasks, lastID *LastID) {
 					fmt.Println("")
 				}
 			}
+			fmt.Println("-------------------------------------------------------------------------------------")
+			fmt.Println("")
 
 		case "showall":
 			if len(inputs) > 1 {
@@ -142,6 +148,7 @@ func Loop(options []string, tasks *Tasks, lastID *LastID) {
 			if len(tasks.Tasks) == 0{
 				fmt.Println("There isn't tasks yet")
 			} else {
+				fmt.Println("")
 				for _, value := range tasks.Tasks {
 					fmt.Printf("ID: %s\n", strconv.FormatUint(uint64(value.ID), 10))
 					fmt.Printf("Name: %s\n", value.Name)
@@ -154,6 +161,8 @@ func Loop(options []string, tasks *Tasks, lastID *LastID) {
 					fmt.Println("")
 				}
 			}
+			fmt.Println("-------------------------------------------------------------------------------------")
+			fmt.Println("")
 		case "delete":
 			if len(inputs) > 2 {
 				fmt.Println("Too many arguments")
@@ -164,7 +173,6 @@ func Loop(options []string, tasks *Tasks, lastID *LastID) {
 				fmt.Println(err.Error())
 				break
 			}
-			fmt.Println("Task deleted")
 			err = SaveChanges(tasks)
 			if err != nil {
 				fmt.Println(err.Error())
@@ -172,6 +180,8 @@ func Loop(options []string, tasks *Tasks, lastID *LastID) {
 				fmt.Println("Task deleted")
 				fmt.Println("")
 			}
+			fmt.Println("-------------------------------------------------------------------------------------")
+			fmt.Println("")
 		case "finish":
 			if len(inputs) > 2 {
 				fmt.Println("Too many arguments")
@@ -187,22 +197,30 @@ func Loop(options []string, tasks *Tasks, lastID *LastID) {
 				fmt.Println(err.Error())
 			} else {
 				fmt.Println("Tasks finished")
+				fmt.Println("")
 			}
+			fmt.Println("-------------------------------------------------------------------------------------")
+			fmt.Println("")
 		case "showopen":
 			if len(inputs) > 1 {
+				fmt.Println("")
 				fmt.Println("Too many arguments")
 				fmt.Println("")
 				break
 			}
 			var count int
+			fmt.Println("")
 			for _, value := range tasks.Tasks {
 				if value.Finish == false {
 					count++
+					fmt.Println("")
 					fmt.Printf("ID: %s\n", strconv.FormatUint(uint64(value.ID), 10))
 					fmt.Printf("Name: %s\n", value.Name)
 					if (value.Description != "") {
 						fmt.Printf("Description: %s\n", value.Description)
 					}
+					fmt.Println("")
+					fmt.Println("-------------------------------------------------------------------------------------")
 					fmt.Println("")
 				}
 			}
@@ -216,6 +234,7 @@ func Loop(options []string, tasks *Tasks, lastID *LastID) {
 				break
 			}
 			var count int
+			fmt.Println("")
 			for _, value := range tasks.Tasks {
 				if value.Finish {
 					count++
@@ -231,11 +250,15 @@ func Loop(options []string, tasks *Tasks, lastID *LastID) {
 			if count == 0 {
 				fmt.Println("There isn't open tasks")
 			}
+			fmt.Println("-------------------------------------------------------------------------------------")
+			fmt.Println("")
 		case "exit":
 			os.Exit(0)
 		}
 	} else {
 		fmt.Println("Not a valid command")
+		fmt.Println("-------------------------------------------------------------------------------------")
+		fmt.Println("")
 	}
 }
 
@@ -245,11 +268,12 @@ func main () {
 	fmt.Println("Welcome to your CLI TO-DO List")
 	fmt.Println("")
 	fmt.Println("Possible commands:")
-	fmt.Println("add <task name> <description>")
+	fmt.Println("")
+	fmt.Println("add \"task name\" \"description\" -> Adds new task")
 	fmt.Println("showall -> Lists all current tasks")
 	fmt.Println("showopen -> Lists all open tasks")
 	fmt.Println("showfinished -> Lists all finished tasks")
-	fmt.Println("delete <task ID> -> ")
+	fmt.Println("delete <task ID> -> Deletes task")
 	fmt.Println("finish <task name> -> Marks a task as finished")
 	fmt.Println("exit -> Closes the app")
 	fmt.Println("")
@@ -259,11 +283,14 @@ func main () {
 
 	homeDir, _ := os.UserHomeDir()
 	todoDir := homeDir + "\\todo\\"
-	err := os.Mkdir(todoDir, 0755)
-	if err != nil {
-		os.Exit(1)
+	if _, err := os.Stat(todoDir); os.IsNotExist(err) {
+		err = os.Mkdir(todoDir, 0755)
+		if err != nil {
+			os.Exit(1)
+		}
 	}
-	if _, err = os.Stat(todoDir + "tasks.json"); err != nil {
+
+	if _, err := os.Stat(todoDir + "tasks.json"); err != nil {
 		ioutil.WriteFile(todoDir + "tasks.json",nil, 0644)
 	}
 	jsonFile, err := os.Open(todoDir + "tasks.json")
