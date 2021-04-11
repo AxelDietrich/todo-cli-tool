@@ -1,4 +1,4 @@
-package TO_DO
+package main
 
 import (
 	"bufio"
@@ -77,7 +77,7 @@ func Loop(options []string, inputs []string, tasks *Tasks, option string) {
 	found := FindOption(options, inputs[0])
 
 	if found {
-		switch option {
+		switch inputs[0] {
 		case "add":
 			if len(inputs) == 1 {
 				fmt.Println("Task name empty")
@@ -86,6 +86,7 @@ func Loop(options []string, inputs []string, tasks *Tasks, option string) {
 			newTask := &Task{}
 			newTask.Name = inputs[1]
 			newTask.Description = inputs[2]
+			tasks.Tasks = append(tasks.Tasks, *newTask)
 			SaveChanges(tasks)
 		case "showall":
 			for _, value := range tasks.Tasks {
@@ -137,6 +138,9 @@ func main () {
 	reader := bufio.NewReader(os.Stdin)
 	option, inputs := ReadInput(reader)
 
+	if _, err := os.Stat("tasks.json"); err == nil {
+		ioutil.WriteFile("tasks.json",nil, 0644)
+	}
 	jsonFile, err := os.Open("tasks.json")
 	if err != nil {
 		os.Exit(1)
@@ -147,9 +151,8 @@ func main () {
 
 	json.Unmarshal(byteValue, &tasks)
 
-	for {
-		Loop(options, inputs, &tasks, option)
-	}
+	Loop(options, inputs, &tasks, option)
+
 
 
 }
