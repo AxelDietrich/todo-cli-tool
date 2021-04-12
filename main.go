@@ -39,15 +39,15 @@ func FindOption(slice []string, val string) bool {
 	return false;
 }
 
-func FindAndDeleteTask(slice *[]Task, ID string) (error) {
+func FindAndDeleteTask(ID string) (error) {
 	findID, err := strconv.Atoi(ID)
 	if err != nil {
 		fmt.Println(err.Error())
 		return err
 	}
-	for i, value := range *slice {
+	for i, value := range (*tasks).Tasks {
 		if value.ID == uint(findID) {
-			*slice = append((*slice)[:i], (*slice)[i+1:]...)
+			(*tasks).Tasks = append((*tasks).Tasks[:i], (*tasks).Tasks[i+1:]...)
 			return nil
 		}
 	}
@@ -58,6 +58,9 @@ func ReadInput(reader *bufio.Reader) []string {
 	option, _ := reader.ReadString('\n')
 	r := regexp.MustCompile(`[^\s"']+|"([^"]*)"|'([^']*)`)
 	inputs := r.FindAllString(option, -1)
+	if len(inputs) == 0{
+		return nil
+	}
 	for len(inputs) > 3 {
 		fmt.Println("Too many arguments")
 		option, _ = reader.ReadString('\n')
@@ -70,22 +73,23 @@ func ReadInput(reader *bufio.Reader) []string {
 	return inputs
 }
 
-func FindAndFinish(slice *[]Task, ID string) error {
+func FindAndFinish(ID string) error {
 	findID, err := strconv.Atoi(ID)
 	if err != nil {
 		return err
 	}
-	for i, value := range *slice {
+	for i, value := range (*tasks).Tasks {
 		if value.ID == uint(findID) {
 			value.FinishDate = time.Now()
 			value.Finish = true
-			(*slice)[i] = value
+			(*tasks).Tasks[i] = value
 			return nil
 		}
 	}
 	return errors.New("There's no taks with that ID")
 }
-func SaveLastID(lastID *LastID) error {
+
+func SaveLastID() error {
 	file, _ := json.MarshalIndent(lastID, "", " ")
 	err := ioutil.WriteFile(todoDir + "ID.json", file, 0644)
 	if err != nil {
@@ -94,7 +98,7 @@ func SaveLastID(lastID *LastID) error {
 	return nil
 }
 
-func SaveChanges(tasks *Tasks) error {
+func SaveChanges() error {
 	file, _ := json.MarshalIndent(tasks, "", " ")
 	err := ioutil.WriteFile(todoDir + "tasks.json", file, 0644)
 	if err != nil {
@@ -103,11 +107,25 @@ func SaveChanges(tasks *Tasks) error {
 	return nil
 }
 
-func Loop(options []string, tasks *Tasks, lastID *LastID) {
+
+func ResetIDs() error {
+	lastID.ID = 0
+	file, _ := json.MarshalIndent(lastID, "", " ")
+	err := ioutil.WriteFile(todoDir + "ID.json", file, 0644)
+	if err != nil {
+		return err
+	}
+	return nil
+
+}
+
+func Loop(options []string) {
 
 	reader := bufio.NewReader(os.Stdin)
 	inputs := ReadInput(reader)
-
+	if inputs == nil {
+		return
+	}
 	found := FindOption(options, inputs[0])
 
 	if found {
@@ -115,6 +133,7 @@ func Loop(options []string, tasks *Tasks, lastID *LastID) {
 		case "add":
 			if len(inputs) == 1 {
 				fmt.Println("Task name empty")
+				break
 			}
 			newTask := &Task{}
 			newTask.ID = lastID.ID + 1
@@ -124,11 +143,11 @@ func Loop(options []string, tasks *Tasks, lastID *LastID) {
 				newTask.Description = inputs[2]
 			}
 			tasks.Tasks = append(tasks.Tasks, *newTask)
-			errID := SaveLastID(lastID)
+			errID := SaveLastID()
 			if errID != nil {
 				fmt.Println(errID.Error())
 			} else {
-				err := SaveChanges(tasks)
+				err := SaveChanges()
 				if err != nil {
 					fmt.Println(err.Error())
 					fmt.Println("")
@@ -168,17 +187,20 @@ func Loop(options []string, tasks *Tasks, lastID *LastID) {
 				fmt.Println("Too many arguments")
 				break
 			}
-			err := FindAndDeleteTask(&tasks.Tasks, inputs[1])
+			err := FindAndDeleteTask(inputs[1])
 			if err != nil {
 				fmt.Println(err.Error())
 				break
 			}
-			err = SaveChanges(tasks)
+			err = SaveChanges()
 			if err != nil {
 				fmt.Println(err.Error())
 			} else{
 				fmt.Println("Task deleted")
 				fmt.Println("")
+				if len(tasks.Tasks) == 0 {
+					ResetIDs()
+				}
 			}
 			fmt.Println("-------------------------------------------------------------------------------------")
 			fmt.Println("")
@@ -188,11 +210,11 @@ func Loop(options []string, tasks *Tasks, lastID *LastID) {
 				fmt.Println("")
 				break
 			}
-			err := FindAndFinish(&tasks.Tasks, inputs[1])
+			err := FindAndFinish(inputs[1])
 			if err != nil {
 				fmt.Print(err.Error())
 			}
-			err = SaveChanges(tasks)
+			err = SaveChanges()
 			if err != nil {
 				fmt.Println(err.Error())
 			} else {
@@ -254,6 +276,26 @@ func Loop(options []string, tasks *Tasks, lastID *LastID) {
 			fmt.Println("")
 		case "exit":
 			os.Exit(0)
+		case "deleteall":
+			tasks.Tasks = tasks.Tasks[:0]
+			err := SaveChanges()
+			if err != nil {
+				fmt.Println(err.Error())
+				fmt.Println("-------------------------------------------------------------------------------------")
+				fmt.Println("")
+			} else {
+				err = ResetIDs()
+				if err != nil {
+					fmt.Println(err.Error())
+					fmt.Println("-------------------------------------------------------------------------------------")
+					fmt.Println("")
+				} else {
+					fmt.Println("All tasks deleted")
+					fmt.Println("-------------------------------------------------------------------------------------")
+					fmt.Println("")
+				}
+			}
+
 		}
 	} else {
 		fmt.Println("Not a valid command")
@@ -263,6 +305,8 @@ func Loop(options []string, tasks *Tasks, lastID *LastID) {
 }
 
 var todoDir string
+var lastID *LastID
+var tasks *Tasks
 
 func main () {
 
@@ -271,15 +315,16 @@ func main () {
 	fmt.Println("Possible commands:")
 	fmt.Println("")
 	fmt.Println("add \"task name\" \"description\" -> Adds new task")
+	fmt.Println("delete <task ID> -> Deletes task")
+	fmt.Println("finish <task name> -> Marks a task as finished")
 	fmt.Println("showall -> Lists all current tasks")
 	fmt.Println("showopen -> Lists all open tasks")
 	fmt.Println("showfinished -> Lists all finished tasks")
-	fmt.Println("delete <task ID> -> Deletes task")
-	fmt.Println("finish <task name> -> Marks a task as finished")
+	fmt.Println("deleteall -> Deletes all tasks")
 	fmt.Println("exit -> Closes the app")
 	fmt.Println("")
 
-	options := []string{"add", "showall", "delete", "finish", "showopen", "showfinished", "exit"}
+	options := []string{"add", "showall", "delete", "finish", "showopen", "showfinished", "exit", "deleteall"}
 
 
 	homeDir, _ := os.UserHomeDir()
@@ -301,8 +346,6 @@ func main () {
 
 	byteValue, _ := ioutil.ReadAll(jsonFile)
 
-	var tasks Tasks
-
 	json.Unmarshal(byteValue, &tasks)
 
 	//Parse IDs
@@ -316,12 +359,10 @@ func main () {
 
 	byteValueID, _ := ioutil.ReadAll(jsonFileID)
 
-	var lastID LastID
-
 	json.Unmarshal(byteValueID, &lastID)
 
 	for {
-		Loop(options, &tasks, &lastID)
+		Loop(options)
 	}
 
 

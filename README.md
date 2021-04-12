@@ -30,3 +30,7 @@ You can:
 
 - showfinished
 
+**delete all** tasks:
+
+- deleteall
+
