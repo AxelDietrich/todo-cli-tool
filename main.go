@@ -274,8 +274,6 @@ func Loop(options []string) {
 			}
 			fmt.Println("-------------------------------------------------------------------------------------")
 			fmt.Println("")
-		case "exit":
-			os.Exit(0)
 		case "deleteall":
 			tasks.Tasks = tasks.Tasks[:0]
 			err := SaveChanges()
@@ -295,6 +293,24 @@ func Loop(options []string) {
 					fmt.Println("")
 				}
 			}
+		case "finishall":
+			for i, value := range tasks.Tasks {
+				value.Finish = true
+				value.FinishDate = time.Now()
+				tasks.Tasks[i] = value
+			}
+			err := SaveChanges()
+			if err != nil {
+				fmt.Println(err)
+				fmt.Println("-------------------------------------------------------------------------------------")
+				fmt.Println("")
+			} else {
+				fmt.Println("All tasks finished")
+				fmt.Println("-------------------------------------------------------------------------------------")
+				fmt.Println("")
+			}
+		case "exit":
+			os.Exit(0)
 
 		}
 	} else {
@@ -324,7 +340,7 @@ func main () {
 	fmt.Println("exit -> Closes the app")
 	fmt.Println("")
 
-	options := []string{"add", "showall", "delete", "finish", "showopen", "showfinished", "exit", "deleteall"}
+	options := []string{"add", "showall", "delete", "finish", "showopen", "showfinished", "exit", "deleteall", "finishall"}
 
 
 	homeDir, _ := os.UserHomeDir()

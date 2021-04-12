@@ -34,3 +34,7 @@ You can:
 
 - deleteall
 
+**finish all** tasks:
+
+- finishall
+
